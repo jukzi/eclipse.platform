@@ -13,15 +13,44 @@
  *******************************************************************************/
 package org.eclipse.core.tests.runtime.jobs;
 
+import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.eclipse.core.runtime.jobs.ILock;
 
 public class LockAcquiringRunnable implements Runnable {
-	private ILock[] locks;
-	private Random random = new Random();
-	private boolean alive;
-	private boolean done;
+	static class RandomOrder {
+		ArrayList<LockAcquiringRunnable> allRunnables;
+		AtomicInteger rounds = new AtomicInteger();
 
+		RandomOrder(ArrayList<LockAcquiringRunnable> allRunnables) {
+			this.allRunnables = allRunnables;
+		}
+
+		public void randomWait() {
+			try {
+				Random random = ThreadLocalRandom.current();
+				Thread.sleep(0, random.nextInt(500));
+			} catch (InterruptedException e) {
+				// ignore
+			}
+		}
+
+		public void roundCompleted() {
+			rounds.incrementAndGet();
+		}
+
+		public void waitFor(int maxRounds) {
+			while (rounds.get() < maxRounds) {
+				Thread.yield();
+			}
+		}
+	}
+
+	private final ILock[] locks;
+	private volatile boolean alive;
+	private volatile RandomOrder rnd;
 	/**
 	 * This runnable will randomly acquire the given lock for
 	 * random periods of time, in the given order
@@ -29,46 +58,29 @@ public class LockAcquiringRunnable implements Runnable {
 	public LockAcquiringRunnable(ILock[] locks) {
 		this.locks = locks;
 		this.alive = true;
-		done = false;
 	}
 
-	public void kill() {
+	public void stop() {
 		alive = false;
 	}
 
 	@Override
 	public void run() {
 		while (alive) {
-			try {
-				Thread.sleep(random.nextInt(500));
-			} catch (InterruptedException e) {
-				//ignore
-			}
+			rnd.randomWait();
 			for (ILock lock : locks) {
 				lock.acquire();
-				try {
-					Thread.sleep(random.nextInt(500));
-				} catch (InterruptedException e1) {
-					//ignore
-				}
+				rnd.randomWait();
 			}
 			//release all locks
 			for (int i = locks.length; --i >= 0;) {
 				locks[i].release();
 			}
+			rnd.roundCompleted();
 		}
-		done = true;
 	}
 
-	public void isDone() {
-		while (!done) {
-			try {
-				Thread.yield();
-				Thread.sleep(100);
-				Thread.yield();
-			} catch (InterruptedException e) {
-				//ignore
-			}
-		}
+	public void setRandomOrder(RandomOrder rnd) {
+		this.rnd = rnd;
 	}
 }

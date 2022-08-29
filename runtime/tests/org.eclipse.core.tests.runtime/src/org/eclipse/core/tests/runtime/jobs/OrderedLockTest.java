@@ -13,22 +13,23 @@
  *******************************************************************************/
 package org.eclipse.core.tests.runtime.jobs;
 
-import static org.junit.Assert.assertTrue;
-
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicIntegerArray;
+import junit.framework.TestCase;
 import org.eclipse.core.internal.jobs.LockManager;
 import org.eclipse.core.internal.jobs.OrderedLock;
 import org.eclipse.core.runtime.jobs.ILock;
 import org.eclipse.core.runtime.jobs.LockListener;
 import org.eclipse.core.tests.harness.TestBarrier2;
+import org.eclipse.core.tests.runtime.jobs.LockAcquiringRunnable.RandomOrder;
 import org.junit.Test;
 
 /**
  * Tests implementation of ILock objects
  */
 @SuppressWarnings("restriction")
-public class OrderedLockTest {
+public class OrderedLockTest extends TestCase {
 
 	/**
 	 * Creates n runnables on the given lock and adds them to the given list.
@@ -39,9 +40,9 @@ public class OrderedLockTest {
 		}
 	}
 
-	private void kill(ArrayList<LockAcquiringRunnable> allRunnables) {
+	private void stop(ArrayList<LockAcquiringRunnable> allRunnables) {
 		for (LockAcquiringRunnable lockAcquiringRunnable : allRunnables) {
-			lockAcquiringRunnable.kill();
+			lockAcquiringRunnable.stop();
 		}
 	}
 
@@ -56,15 +57,7 @@ public class OrderedLockTest {
 		createRunnables(new ILock[] {lock3, lock2, lock1}, 5, allRunnables);
 		createRunnables(new ILock[] {lock1, lock3, lock2}, 5, allRunnables);
 		createRunnables(new ILock[] {lock2, lock3, lock1}, 5, allRunnables);
-		start(allRunnables);
-		try {
-			Thread.sleep(5000);
-		} catch (InterruptedException e) {
-		}
-		kill(allRunnables);
-		for (LockAcquiringRunnable runnable : allRunnables) {
-			runnable.isDone();
-		}
+		execute(allRunnables);
 		//the underlying array has to be empty
 		assertTrue("Locks not removed from graph.", manager.isEmpty());
 	}
@@ -78,15 +71,7 @@ public class OrderedLockTest {
 		OrderedLock lock3 = manager.newLock();
 		createRunnables(new ILock[] {lock1, lock2, lock3}, 1, allRunnables);
 		createRunnables(new ILock[] {lock3, lock2, lock1}, 1, allRunnables);
-		start(allRunnables);
-		try {
-			Thread.sleep(5000);
-		} catch (InterruptedException e) {
-		}
-		kill(allRunnables);
-		for (LockAcquiringRunnable runnable : allRunnables) {
-			runnable.isDone();
-		}
+		execute(allRunnables);
 		//the underlying array has to be empty
 		assertTrue("Locks not removed from graph.", manager.isEmpty());
 	}
@@ -271,9 +256,25 @@ public class OrderedLockTest {
 		assertTrue("Locks not removed from graph.", manager.isEmpty());
 	}
 
-	private void start(ArrayList<LockAcquiringRunnable> allRunnables) {
+	private void execute(ArrayList<LockAcquiringRunnable> allRunnables) {
+		RandomOrder randomOrder = new RandomOrder(allRunnables);
 		for (LockAcquiringRunnable lockAcquiringRunnable : allRunnables) {
-			new Thread(lockAcquiringRunnable).start();
+			lockAcquiringRunnable.setRandomOrder(randomOrder);
+		}
+		List<Thread> threads = new ArrayList<>();
+		for (LockAcquiringRunnable lockAcquiringRunnable : allRunnables) {
+			Thread thread = new Thread(lockAcquiringRunnable);
+			threads.add(thread);
+			thread.start();
+		}
+		randomOrder.waitFor(5);
+		stop(allRunnables);
+		for (Thread thread : threads) {
+			try {
+				thread.join();
+			} catch (InterruptedException e) {
+				throw new IllegalStateException("interrupted");
+			}
 		}
 	}
 }
