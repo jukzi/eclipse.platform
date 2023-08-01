@@ -11,5 +11,5 @@ on:
 
 jobs:
   analyze:
-    name: CodeQL
+    name: CodeQL2
     uses: jukzi/eclipse.platform.ui/.github/workflows/codeql.yml@master
