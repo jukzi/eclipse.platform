@@ -280,11 +280,9 @@ public abstract class SearchParticipantXML extends SearchParticipant {
 			String name, URL url, String id, ISearchDocument doc) {
 		InputStream stream = null;
 		try {
-			if (parser == null) {
-				@SuppressWarnings("restriction")
-				SAXParser p = org.eclipse.core.internal.runtime.XmlProcessorFactory.createSAXParserNoExternal();
-				parser = p;
-			}
+			@SuppressWarnings("restriction")
+			SAXParser p = org.eclipse.core.internal.runtime.XmlProcessorFactory.createSAXParserNoExternal();
+			parser = p;
 			stack.clear();
 			hasFilters = false;
 			ParsedXMLContent parsed = new ParsedXMLContent(index.getLocale());
