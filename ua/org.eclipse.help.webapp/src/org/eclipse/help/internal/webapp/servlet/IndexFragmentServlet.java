@@ -109,7 +109,8 @@ public class IndexFragmentServlet extends HttpServlet {
 		showAllParameter = req.getParameter(SHOW_ALL);
 		if (showAllParameter != null) {
 			// Use activities data to toggle the show all state
-			new ActivitiesData(this.getServletContext(), req, resp);
+			@SuppressWarnings("unused")
+			ActivitiesData dummy = new ActivitiesData(this.getServletContext(), req, resp);
 		}
 
 		req.setCharacterEncoding("UTF-8"); //$NON-NLS-1$
